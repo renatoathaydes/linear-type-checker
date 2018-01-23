@@ -35,6 +35,7 @@ public class LinearAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
     final AnnotationMirror LINEAR, UNUSABLE, NORMAL;
 
+    @SuppressWarnings("method.invocation.invalid")
     public LinearAnnotatedTypeFactory(BaseTypeChecker checker) {
         super(checker);
 
