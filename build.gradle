@@ -26,3 +26,25 @@ dependencies {
     testCompile "com.athaydes.osgiaas:osgiaas-javac:0.8"
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
+
+task reformat(type: Exec) {
+    def javaFiles = new File('src/main/java/com/athaydes/checker/linear').listFiles()
+            .findAll { File f -> f.name.endsWith('.java') }*.absolutePath
+    List<String> args = ['python', '../checker/bin-devel/.run-google-java-format/run-google-java-format.py', *javaFiles]
+    commandLine args
+}
+
+task deployChanges(type: Copy, dependsOn: reformat) {
+    from 'src/main/java/com/athaydes/checker/linear'
+    include '*.java'
+    into '../checker/src/org/checkerframework/checker/linear'
+    filter { String line ->
+        switch (line.trim()) {
+            case 'package com.athaydes.checker.linear;':
+                return 'package org.checkerframework.checker.linear;'
+            case ~/import com\.athaydes\.checker\.linear\.qual\.[a-zA-Z_0-9]+;/:
+                return 'import com.athaydes.checker.linear.qual' + line[line.lastIndexOf('.')..-1]
+        }
+        line
+    }
+}
