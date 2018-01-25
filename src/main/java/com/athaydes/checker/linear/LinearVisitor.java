@@ -26,73 +26,69 @@ import org.checkerframework.javacutil.TreeUtils;
  */
 public class LinearVisitor extends BaseTypeVisitor<LinearAnnotatedTypeFactory> {
 
-    public LinearVisitor(BaseTypeChecker checker) {
-        super(checker);
-    }
+  public LinearVisitor(BaseTypeChecker checker) {
+    super(checker);
+  }
 
-    /**
-     * Return true if the node represents a reference to a local variable or parameter.
-     *
-     * <p>
-     *
-     * <p>In Linear Checker, only local variables and method parameters can be of {@link Linear} or
-     * {@link Unusable} types.
-     *
-     * @param node a tree
-     * @return true if node is a local variable or parameter reference
-     */
-    static boolean isLocalVarOrParam(ExpressionTree node) {
-        Element elem = TreeUtils.elementFromUse(node);
-        if (elem == null) return false;
-        switch (elem.getKind()) {
-            case PARAMETER:
-            case LOCAL_VARIABLE:
-                return true;
-            default:
-                return false;
-        }
+  /**
+   * Return true if the node represents a reference to a local variable or parameter.
+   *
+   * <p>
+   *
+   * <p>In Linear Checker, only local variables and method parameters can be of {@link Linear} or
+   * {@link Unusable} types.
+   *
+   * @param node a tree
+   * @return true if node is a local variable or parameter reference
+   */
+  static boolean isLocalVarOrParam(ExpressionTree node) {
+    Element elem = TreeUtils.elementFromUse(node);
+    if (elem == null) return false;
+    switch (elem.getKind()) {
+      case PARAMETER:
+      case LOCAL_VARIABLE:
+        return true;
+      default:
+        return false;
     }
+  }
 
-    /** Issue an error if the node represents a reference that has been used up. */
-    private void checkLegality(ExpressionTree node) {
-        if (isLocalVarOrParam(node)) {
-            if (atypeFactory.getAnnotatedType(node).hasAnnotation(Unusable.class)) {
-                checker.report(
-                        Result.failure("use.unsafe", TreeUtils.elementFromUse(node), node), node);
-            }
-        }
+  /** Issue an error if the node represents a reference that has been used up. */
+  private void checkLegality(ExpressionTree node) {
+    if (isLocalVarOrParam(node)) {
+      if (atypeFactory.getAnnotatedType(node).hasAnnotation(Unusable.class)) {
+        checker.report(Result.failure("use.unsafe", TreeUtils.elementFromUse(node), node), node);
+      }
     }
+  }
 
-    @Override
-    public Void visitIdentifier(IdentifierTree node, Void p) {
-        checkLegality(node);
-        return super.visitIdentifier(node, p);
+  @Override
+  public Void visitIdentifier(IdentifierTree node, Void p) {
+    checkLegality(node);
+    return super.visitIdentifier(node, p);
+  }
+
+  @Override
+  public Void visitMemberSelect(MemberSelectTree node, Void p) {
+    checkLegality(node);
+    return super.visitMemberSelect(node, p);
+  }
+
+  @Override
+  protected void commonAssignmentCheck(
+      AnnotatedTypeMirror varType, AnnotatedTypeMirror valueType, Tree valueTree, String errorKey) {
+    if (varType.hasAnnotation(Linear.class)) {
+      if (valueTree instanceof LiteralTree || valueTree instanceof NewClassTree) {
+        valueType.removeAnnotation(atypeFactory.NORMAL);
+        valueType.addAnnotation(atypeFactory.LINEAR);
+      }
     }
+    super.commonAssignmentCheck(varType, valueType, valueTree, errorKey);
+  }
 
-    @Override
-    public Void visitMemberSelect(MemberSelectTree node, Void p) {
-        checkLegality(node);
-        return super.visitMemberSelect(node, p);
-    }
-
-    @Override
-    protected void commonAssignmentCheck(
-            AnnotatedTypeMirror varType,
-            AnnotatedTypeMirror valueType,
-            Tree valueTree,
-            String errorKey) {
-        if (varType.hasAnnotation(Linear.class)) {
-            if (valueTree instanceof LiteralTree || valueTree instanceof NewClassTree) {
-                valueType.removeAnnotation(atypeFactory.NORMAL);
-                valueType.addAnnotation(atypeFactory.LINEAR);
-            }
-        }
-        super.commonAssignmentCheck(varType, valueType, valueTree, errorKey);
-    }
-
-    /** Linear Checker does not contain a rule for method invocation. */
-    // Premature optimization:  Don't check method invocability
-    @Override
-    protected void checkMethodInvocability(
-            AnnotatedExecutableType method, MethodInvocationTree node) {}
+  /** Linear Checker does not contain a rule for method invocation. */
+  // Premature optimization:  Don't check method invocability
+  @Override
+  protected void checkMethodInvocability(
+      AnnotatedExecutableType method, MethodInvocationTree node) {}
 }

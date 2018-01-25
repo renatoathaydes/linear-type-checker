@@ -34,55 +34,55 @@ import org.checkerframework.javacutil.AnnotationBuilder;
  */
 public class LinearAnnotatedTypeFactory extends BaseAnnotatedTypeFactory {
 
-    final AnnotationMirror LINEAR, UNUSABLE, NORMAL;
+  final AnnotationMirror LINEAR, UNUSABLE, NORMAL;
 
-    @SuppressWarnings("method.invocation.invalid")
-    public LinearAnnotatedTypeFactory(BaseTypeChecker checker) {
-        super(checker);
+  @SuppressWarnings("method.invocation.invalid")
+  public LinearAnnotatedTypeFactory(BaseTypeChecker checker) {
+    super(checker);
 
-        LINEAR = AnnotationBuilder.fromClass(elements, Linear.class);
-        UNUSABLE = AnnotationBuilder.fromClass(elements, Unusable.class);
-        NORMAL = AnnotationBuilder.fromClass(elements, Normal.class);
+    LINEAR = AnnotationBuilder.fromClass(elements, Linear.class);
+    UNUSABLE = AnnotationBuilder.fromClass(elements, Unusable.class);
+    NORMAL = AnnotationBuilder.fromClass(elements, Normal.class);
 
-        this.postInit();
+    this.postInit();
+  }
+
+  @Override
+  protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
+    return getBundledTypeQualifiersWithPolyAll(Linear.class, Normal.class, Unusable.class);
+  }
+
+  @Override
+  public CFTransfer createFlowTransferFunction(
+      CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
+    return new LinearFlow(analysis);
+  }
+
+  private class LinearFlow extends CFTransfer {
+    private final AnnotatedTypeFactory factory;
+
+    LinearFlow(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
+      super(analysis);
+      factory = analysis.getTypeFactory();
     }
 
     @Override
-    protected Set<Class<? extends Annotation>> createSupportedTypeQualifiers() {
-        return getBundledTypeQualifiersWithPolyAll(Linear.class, Normal.class, Unusable.class);
-    }
+    public TransferResult<CFValue, CFStore> visitMethodInvocation(
+        MethodInvocationNode node, TransferInput<CFValue, CFStore> in) {
+      TransferResult<CFValue, CFStore> result = super.visitMethodInvocation(node, in);
 
-    @Override
-    public CFTransfer createFlowTransferFunction(
-            CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
-        return new LinearFlow(analysis);
-    }
-
-    private class LinearFlow extends CFTransfer {
-        private final AnnotatedTypeFactory factory;
-
-        LinearFlow(CFAbstractAnalysis<CFValue, CFStore, CFTransfer> analysis) {
-            super(analysis);
-            factory = analysis.getTypeFactory();
+      @Nullable Tree receiverTree = node.getTarget().getReceiver().getTree();
+      if (receiverTree != null) {
+        AnnotatedTypeMirror type = factory.getAnnotatedType(receiverTree);
+        if (type.isAnnotatedInHierarchy(LINEAR)) {
+          return new RegularTransferResult<>(
+              analysis.createSingleAnnotationValue(
+                  UNUSABLE, result.getResultValue().getUnderlyingType()),
+              in.getRegularStore());
         }
+      }
 
-        @Override
-        public TransferResult<CFValue, CFStore> visitMethodInvocation(
-                MethodInvocationNode node, TransferInput<CFValue, CFStore> in) {
-            TransferResult<CFValue, CFStore> result = super.visitMethodInvocation(node, in);
-
-            @Nullable Tree receiverTree = node.getTarget().getReceiver().getTree();
-            if (receiverTree != null) {
-                AnnotatedTypeMirror type = factory.getAnnotatedType(receiverTree);
-                if (type.isAnnotatedInHierarchy(LINEAR)) {
-                    return new RegularTransferResult<>(
-                            analysis.createSingleAnnotationValue(
-                                    UNUSABLE, result.getResultValue().getUnderlyingType()),
-                            in.getRegularStore());
-                }
-            }
-
-            return result;
-        }
+      return result;
     }
+  }
 }
