@@ -43,7 +43,7 @@ task deployChanges(type: Copy, dependsOn: reformat) {
             case 'package com.athaydes.checker.linear;':
                 return 'package org.checkerframework.checker.linear;'
             case ~/import com\.athaydes\.checker\.linear\.qual\.[a-zA-Z_0-9]+;/:
-                return 'import com.athaydes.checker.linear.qual' + line[line.lastIndexOf('.')..-1]
+                return 'import org.checkerframework.checker.linear.qual' + line[line.lastIndexOf('.')..-1]
         }
         line
     }
